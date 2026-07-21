@@ -39,7 +39,7 @@ export interface TaskEvent {
 
 export interface TaskDetail {
   task: TaskSummary;
-  project: { id: string; name: string; repositoryPath?: string; issue?: { provider: string } };
+  project: { id: string; name: string; mode?: 'real' | 'demo'; repositoryPath?: string; issue?: { provider: string } };
   configuration?: { valid: boolean; issueProvider: string; configuredServices: number };
   artifacts: Partial<Record<'requirements' | 'context' | 'plan' | 'progress' | 'completion', string>>;
   artifactFiles: Array<{ kind: string; path: string; updatedAt: string }>;

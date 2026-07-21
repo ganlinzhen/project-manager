@@ -48,6 +48,21 @@ describe('桌面端任务流', () => {
     expect(screen.getByRole('link', { name: '打开工作树' })).toBeInTheDocument();
   });
 
+  it('演示项目显示连接边界且不提供服务启动操作', () => {
+    const detail: TaskDetail = {
+      task: active,
+      project: { id: 'demo', name: 'Demo', mode: 'demo' },
+      artifacts: {},
+      artifactFiles: [],
+      events: [],
+      services: [{ serviceKey: 'web', status: 'stopped', port: 1420, lastError: null }]
+    };
+    render(<TaskDetailPage detail={detail} pendingAction={null} feedback={null} onBack={vi.fn()} onAction={vi.fn()} />);
+    expect(screen.getByText('演示项目')).toBeInTheDocument();
+    expect(screen.getByText('演示项目不连接真实仓库或开发服务。')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '启动 web' })).not.toBeInTheDocument();
+  });
+
   it('设置页保存工作管理仓库和 Node.js 绝对路径', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(<SettingsPage settings={{ managerRoot: '/workspace/manager', nodePath: '/opt/homebrew/bin/node' }} onSave={onSave} />);

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   ArtifactService, DoctorService, EnvironmentService, IssueService, SystemCommandRunner, SystemProcessController,
   TaskRepository, TaskService, WorkManagerDatabase, WorkspaceService, defaultDatabasePath, loadProjectConfigs,
-  assertRealPathWithinRoots, parseCommandLine, toWorkManagerError,
+  assertRealPathWithinRoots, parseCommandLine, seedDemoProject, toWorkManagerError,
   type ProjectConfig, type TaskPriority, type TaskStatus, type TaskType, type WorkManagerError
 } from '@work-manager/core';
 
@@ -70,7 +70,19 @@ async function createRuntime(options: CliRuntimeOptions): Promise<Runtime> {
   const tasks = new TaskService(repository, artifacts, resolveProject, { issues, workspace });
   const environment = new EnvironmentService(repository, resolveProject, processes);
   const doctor = new DoctorService(repository, resolveProject, processes, { issues, workspace });
+  for (const project of projects.values()) await seedDemoProject(project, tasks);
   return { database, projects, repository, artifacts, tasks, issues, workspace, environment, doctor };
+}
+
+function forbidDemoExternalOperation(project: ProjectConfig | undefined): void {
+  if (project?.mode === 'demo') {
+    throw Object.assign(new Error('演示项目不连接真实仓库或外部服务'), { code: 'DEMO_EXTERNAL_OPERATION_FORBIDDEN' });
+  }
+}
+
+function projectForTask(runtime: Runtime, taskId: string): ProjectConfig | undefined {
+  const task = runtime.repository.requireTask(taskId);
+  return runtime.projects.get(task.projectId) ?? runtime.repository.getProject(task.projectId) ?? undefined;
 }
 
 async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
@@ -80,6 +92,15 @@ async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
     if (!id) throw Object.assign(new Error('缺少项目 ID'), { code: 'CLI_ARGUMENT_REQUIRED' });
     const project = runtime.projects.get(id);
     if (!project) throw Object.assign(new Error(`项目不存在：${id}`), { code: 'PROJECT_NOT_FOUND' });
+    if (project.mode === 'demo') {
+      return {
+        project,
+        issue: { provider: 'none', accessible: true },
+        services: [],
+        skippedChecks: ['repository', 'git', 'branch', 'services', 'issue'],
+        valid: true
+      };
+    }
     await access(project.repositoryPath);
     await new SystemCommandRunner().run(['git', 'rev-parse', '--is-inside-work-tree'], { cwd: project.repositoryPath });
     await new SystemCommandRunner().run(['git', 'rev-parse', '--verify', project.defaultBranch], { cwd: project.repositoryPath });
@@ -102,6 +123,7 @@ async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
       const priority = (value(args, '--priority') ?? 'medium') as TaskPriority;
       if (!['feature', 'bug', 'chore'].includes(type)) throw Object.assign(new Error(`无效任务类型：${type}`), { code: 'TASK_TYPE_INVALID' });
       if (!['low', 'medium', 'high', 'urgent'].includes(priority)) throw Object.assign(new Error(`无效优先级：${priority}`), { code: 'TASK_PRIORITY_INVALID' });
+      if (flag(args, '--create-issue') || flag(args, '--create-worktree')) forbidDemoExternalOperation(runtime.projects.get(projectId));
       return runtime.tasks.createTask({
         projectId, title, type, priority, requirementSummary: value(args, '--requirement'),
         createIssue: flag(args, '--create-issue'), createWorktree: flag(args, '--create-worktree')
@@ -134,16 +156,23 @@ async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
       const task = await runtime.tasks.updateProgress(id, { current: value(args, '--current', true)!, next: value(args, '--next', true)! });
       return { task };
     }
-    if (action === 'retry') return runtime.tasks.retryTask(id);
+    if (action === 'retry') {
+      forbidDemoExternalOperation(projectForTask(runtime, id));
+      return runtime.tasks.retryTask(id);
+    }
     if (action === 'pause') return { task: runtime.tasks.pauseTask(id) };
     if (action === 'resume') return { task: runtime.tasks.resumeTask(id) };
     if (action === 'complete') return { task: runtime.tasks.completeTask(id) };
     if (action === 'reopen') return { task: runtime.tasks.reopenTask(id) };
-    if (action === 'attach-issue') return { task: runtime.issues.attach(id, value(args, '--url', true)!) };
+    if (action === 'attach-issue') {
+      forbidDemoExternalOperation(projectForTask(runtime, id));
+      return { task: await runtime.issues.attach(id, value(args, '--url', true)!) };
+    }
     if (action === 'doctor') return runtime.doctor.check(id);
   }
   if (scope === 'env') {
     if (!id) throw Object.assign(new Error('缺少任务 ID'), { code: 'CLI_ARGUMENT_REQUIRED' });
+    if (action === 'start' || action === 'stop') forbidDemoExternalOperation(projectForTask(runtime, id));
     if (action === 'start') return { service: await runtime.environment.start(id, value(args, '--service', true)!) };
     if (action === 'stop') return { service: await runtime.environment.stop(id, value(args, '--service', true)!) };
     if (action === 'status') return { services: await runtime.environment.status(id) };

@@ -21,6 +21,17 @@ async function runtime() {
   return { managerRoot: root, projectsDir, databasePath: path.join(root, 'wm.db') };
 }
 
+async function demoRuntime() {
+  const root = await mkdtemp(path.join(tmpdir(), 'wm-demo-cli-'));
+  const projectsDir = path.join(root, 'projects');
+  await mkdir(projectsDir, { recursive: true });
+  await writeFile(path.join(projectsDir, 'demo.yaml'), [
+    'id: demo', 'name: Demo 演示项目', 'taskPrefix: DEMO', 'mode: demo', 'repositoryPath: /__work-manager-demo__/repository', 'defaultBranch: main',
+    'issue:', '  provider: none', 'development:', '  services: {}'
+  ].join('\n'));
+  return { managerRoot: root, projectsDir, databasePath: path.join(root, 'wm.db') };
+}
+
 async function run(args: string[], config: Awaited<ReturnType<typeof runtime>>): Promise<CliResponse> {
   let response: CliResponse | undefined;
   await executeCli(args, config, (value) => { response = value; });
@@ -29,6 +40,28 @@ async function run(args: string[], config: Awaited<ReturnType<typeof runtime>>):
 }
 
 describe('wm CLI JSON 闭环', () => {
+  it('演示项目跳过外部校验并初始化展示任务', async () => {
+    const config = await demoRuntime();
+    const validation = await run(['project', 'validate', 'demo', '--json'], config);
+    expect(validation).toMatchObject({
+      ok: true,
+      data: { valid: true, skippedChecks: ['repository', 'git', 'branch', 'services', 'issue'] }
+    });
+    const listed = await run(['task', 'list', '--all', '--json'], config);
+    expect(listed).toMatchObject({
+      ok: true,
+      data: { tasks: expect.arrayContaining([expect.objectContaining({ projectId: 'demo' })]) }
+    });
+  });
+
+  it('演示项目拒绝真实仓库和服务操作', async () => {
+    const config = await demoRuntime();
+    const create = await run(['task', 'create', '--project', 'demo', '--title', '不连接真实仓库', '--create-worktree', '--json'], config);
+    expect(create).toMatchObject({ ok: false, error: { code: 'DEMO_EXTERNAL_OPERATION_FORBIDDEN' } });
+    const environment = await run(['env', 'start', 'DEMO-1', '--service', 'web', '--json'], config);
+    expect(environment).toMatchObject({ ok: false, error: { code: 'DEMO_EXTERNAL_OPERATION_FORBIDDEN' } });
+  });
+
   it('从 workspace 子包目录向上找到工作管理仓库根目录', async () => {
     const root = path.resolve(import.meta.dirname, '../../..');
     await expect(findManagerRoot(path.join(root, 'packages', 'cli'))).resolves.toBe(root);

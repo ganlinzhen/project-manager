@@ -3,6 +3,7 @@ export type TaskStatus = (typeof taskStatuses)[number];
 export type TaskType = 'feature' | 'bug' | 'chore';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type IssueProviderKind = 'github' | 'gitlab' | 'none';
+export type ProjectMode = 'real' | 'demo';
 
 export interface DevelopmentServiceConfig {
   cwd: string;
@@ -15,6 +16,7 @@ export interface ProjectConfig {
   id: string;
   name: string;
   taskPrefix: string;
+  mode: ProjectMode;
   repositoryPath: string;
   worktreeRoot?: string;
   defaultBranch: string;

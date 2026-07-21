@@ -1,0 +1,12 @@
+id: demo
+name: Demo 演示项目
+taskPrefix: DEMO
+mode: demo
+repositoryPath: /__work-manager-demo__/repository
+defaultBranch: main
+
+issue:
+  provider: none
+
+development:
+  services: {}

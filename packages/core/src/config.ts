@@ -17,6 +17,7 @@ const projectSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
   name: z.string().min(1),
   taskPrefix: z.string().regex(/^[A-Z][A-Z0-9]*$/),
+  mode: z.enum(['real', 'demo']).default('real'),
   repositoryPath: z.string().min(1),
   worktreeRoot: z.string().min(1).optional(),
   defaultBranch: z.string().min(1),

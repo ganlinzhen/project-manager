@@ -3,6 +3,7 @@ export * from './artifact-service.js';
 export * from './command-runner.js';
 export * from './config.js';
 export * from './database.js';
+export * from './demo-seed.js';
 export * from './doctor-service.js';
 export * from './domain.js';
 export * from './environment-service.js';

@@ -11,6 +11,7 @@ import {
   canTransition,
   loadProjectConfig,
   loadProjectConfigs,
+  seedDemoProject,
   type ProjectConfig
 } from '../src/index.js';
 
@@ -53,8 +54,19 @@ describe('项目配置和领域规则', () => {
   it('读取单一 Issue 提供方和命名开发服务', async () => {
     const { project } = await fixture();
     expect(project.id).toBe('demo');
+    expect(project.mode).toBe('real');
     expect(project.issue.provider).toBe('none');
     expect(project.development.services.web?.cwd).toBe('.');
+  });
+
+  it('读取演示项目模式', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'wm-demo-config-'));
+    const configPath = path.join(root, 'demo.yaml');
+    await writeFile(configPath, [
+      'id: demo', 'name: Demo', 'taskPrefix: DEMO', 'mode: demo', 'repositoryPath: /__work-manager-demo__/repository', 'defaultBranch: main',
+      'issue:', '  provider: none', 'development:', '  services: {}'
+    ].join('\n'));
+    await expect(loadProjectConfig(configPath)).resolves.toMatchObject({ mode: 'demo' });
   });
 
   it('拒绝允许根目录之外的路径', () => {
@@ -90,6 +102,23 @@ describe('项目配置和领域规则', () => {
 });
 
 describe('任务存储和闭环', () => {
+  it('只为没有任务的演示项目初始化四条完整示例数据', async () => {
+    const { repository, project, managerRoot } = await fixture();
+    const demoProject = { ...project, mode: 'demo' as const };
+    repository.registerProject(demoProject);
+    const artifacts = new ArtifactService(managerRoot, repository);
+    const tasks = new TaskService(repository, artifacts, () => demoProject);
+
+    await seedDemoProject(demoProject, tasks);
+    expect(repository.listTasks({ projectId: 'demo' })).toHaveLength(4);
+    expect(repository.listTasks({ projectId: 'demo' }).map((task) => task.status).sort()).toEqual(['blocked', 'done', 'in_progress', 'ready']);
+    expect(repository.listArtifacts('DEMO-1')).toHaveLength(5);
+    await expect(readFile(path.join(managerRoot, 'data', 'artifacts', 'DEMO-1', 'requirements.md'), 'utf8')).resolves.toContain('演示');
+
+    await seedDemoProject(demoProject, tasks);
+    expect(repository.listTasks({ projectId: 'demo' })).toHaveLength(4);
+  });
+
   it('项目内任务编号单调递增且不会复用', async () => {
     const { repository, project } = await fixture();
     const first = repository.createTask(project, { title: '第一项', type: 'feature', priority: 'high' });

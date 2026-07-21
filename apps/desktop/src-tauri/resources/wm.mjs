@@ -11649,6 +11649,7 @@ var projectSchema = external_exports.object({
   id: external_exports.string().regex(/^[a-z][a-z0-9-]*$/),
   name: external_exports.string().min(1),
   taskPrefix: external_exports.string().regex(/^[A-Z][A-Z0-9]*$/),
+  mode: external_exports.enum(["real", "demo"]).default("real"),
   repositoryPath: external_exports.string().min(1),
   worktreeRoot: external_exports.string().min(1).optional(),
   defaultBranch: external_exports.string().min(1),
@@ -11818,6 +11819,67 @@ var WorkManagerDatabase = class {
     this.connection.close();
   }
 };
+
+// ../core/src/demo-seed.ts
+var demoTasks = [
+  {
+    title: "\u68B3\u7406\u5DE5\u4F5C\u7BA1\u7406\u4ED3\u5E93\u89C4\u8303",
+    type: "chore",
+    priority: "high",
+    requirementSummary: "\u6F14\u793A\u6570\u636E\uFF1A\u786E\u8BA4\u9879\u76EE\u914D\u7F6E\u3001\u89C4\u5219\u6587\u6863\u4E0E\u4EFB\u52A1\u5DE5\u4EF6\u7684\u76EE\u5F55\u8FB9\u754C\u3002",
+    current: "\u76EE\u5F55\u89C4\u8303\u5DF2\u5F62\u6210\u521D\u7A3F",
+    next: "\u8865\u5145\u7B2C\u4E00\u4E2A\u771F\u5B9E\u9879\u76EE\u7684\u63A5\u5165\u8BF4\u660E",
+    status: "ready"
+  },
+  {
+    title: "\u5B9E\u73B0 Demo \u5C55\u793A\u9879\u76EE",
+    type: "feature",
+    priority: "high",
+    requirementSummary: "\u6F14\u793A\u6570\u636E\uFF1A\u8BA9\u684C\u9762\u770B\u677F\u80FD\u5C55\u793A\u65E0\u9700\u771F\u5B9E\u4EE3\u7801\u4ED3\u5E93\u7684\u9879\u76EE\u4E0E\u4EFB\u52A1\u3002",
+    current: "\u6B63\u5728\u63A5\u5165\u672C\u5730\u793A\u4F8B\u4EFB\u52A1",
+    next: "\u68C0\u67E5\u4EFB\u52A1\u8BE6\u60C5\u4E2D\u7684\u5DE5\u4EF6\u5C55\u793A",
+    status: "in_progress"
+  },
+  {
+    title: "\u7B49\u5F85\u90E8\u7F72\u65B9\u5F0F\u786E\u8BA4",
+    type: "chore",
+    priority: "medium",
+    requirementSummary: "\u6F14\u793A\u6570\u636E\uFF1A\u8BB0\u5F55\u5728\u5916\u90E8\u4F9D\u8D56\u672A\u786E\u8BA4\u65F6\u5982\u4F55\u4FDD\u7559\u4E0A\u4E0B\u6587\u548C\u4E0B\u4E00\u6B65\u3002",
+    current: "\u7B49\u5F85\u786E\u8BA4\u76EE\u6807\u73AF\u5883",
+    next: "\u6536\u5230\u90E8\u7F72\u65B9\u5F0F\u540E\u8865\u5145\u9879\u76EE\u89C4\u5219",
+    status: "blocked",
+    blockedReason: "\u6F14\u793A\uFF1A\u5C1A\u672A\u786E\u8BA4\u771F\u5B9E\u90E8\u7F72\u73AF\u5883"
+  },
+  {
+    title: "\u5B8C\u6210\u6A21\u677F\u4F53\u9A8C\u8D70\u67E5",
+    type: "chore",
+    priority: "low",
+    requirementSummary: "\u6F14\u793A\u6570\u636E\uFF1A\u786E\u8BA4\u6A21\u677F\u53EF\u88AB\u590D\u5236\uFF0C\u5E76\u5305\u542B\u9879\u76EE\u89C4\u5219\u4E0E\u4EFB\u52A1\u4EA7\u7269\u76EE\u5F55\u3002",
+    current: "\u76EE\u5F55\u3001\u89C4\u5219\u548C\u793A\u4F8B\u4EFB\u52A1\u5DF2\u68C0\u67E5",
+    next: "\u5982\u9700\u6269\u5C55\u53EF\u65B0\u589E\u771F\u5B9E\u9879\u76EE\u914D\u7F6E",
+    status: "done"
+  }
+];
+async function seedDemoProject(project, tasks) {
+  if (project.mode !== "demo" || tasks.repository.listTasks({ projectId: project.id }).length > 0) return;
+  for (const item of demoTasks) {
+    const created = await tasks.createTask({
+      projectId: project.id,
+      title: item.title,
+      type: item.type,
+      priority: item.priority,
+      requirementSummary: item.requirementSummary
+    });
+    await tasks.updateProgress(created.task.id, { current: item.current, next: item.next });
+    if (item.status === "in_progress") tasks.resumeTask(created.task.id);
+    if (item.status === "blocked") {
+      tasks.resumeTask(created.task.id);
+      tasks.repository.updateTask(created.task.id, { blockedReason: item.blockedReason ?? null });
+      tasks.changeStatus(created.task.id, "blocked", "\u6F14\u793A\u4EFB\u52A1\u7B49\u5F85\u5916\u90E8\u786E\u8BA4");
+    }
+    if (item.status === "done") tasks.completeTask(created.task.id);
+  }
+}
 
 // ../core/src/doctor-service.ts
 import { access, readFile as readFile3 } from "node:fs/promises";
@@ -12617,7 +12679,17 @@ async function createRuntime(options) {
   const tasks = new TaskService(repository, artifacts, resolveProject, { issues, workspace });
   const environment = new EnvironmentService(repository, resolveProject, processes);
   const doctor = new DoctorService(repository, resolveProject, processes, { issues, workspace });
+  for (const project of projects.values()) await seedDemoProject(project, tasks);
   return { database, projects, repository, artifacts, tasks, issues, workspace, environment, doctor };
+}
+function forbidDemoExternalOperation(project) {
+  if (project?.mode === "demo") {
+    throw Object.assign(new Error("\u6F14\u793A\u9879\u76EE\u4E0D\u8FDE\u63A5\u771F\u5B9E\u4ED3\u5E93\u6216\u5916\u90E8\u670D\u52A1"), { code: "DEMO_EXTERNAL_OPERATION_FORBIDDEN" });
+  }
+}
+function projectForTask(runtime, taskId) {
+  const task = runtime.repository.requireTask(taskId);
+  return runtime.projects.get(task.projectId) ?? runtime.repository.getProject(task.projectId) ?? void 0;
 }
 async function dispatch(args, runtime) {
   const [scope, action, id] = args;
@@ -12626,6 +12698,15 @@ async function dispatch(args, runtime) {
     if (!id) throw Object.assign(new Error("\u7F3A\u5C11\u9879\u76EE ID"), { code: "CLI_ARGUMENT_REQUIRED" });
     const project = runtime.projects.get(id);
     if (!project) throw Object.assign(new Error(`\u9879\u76EE\u4E0D\u5B58\u5728\uFF1A${id}`), { code: "PROJECT_NOT_FOUND" });
+    if (project.mode === "demo") {
+      return {
+        project,
+        issue: { provider: "none", accessible: true },
+        services: [],
+        skippedChecks: ["repository", "git", "branch", "services", "issue"],
+        valid: true
+      };
+    }
     await access2(project.repositoryPath);
     await new SystemCommandRunner().run(["git", "rev-parse", "--is-inside-work-tree"], { cwd: project.repositoryPath });
     await new SystemCommandRunner().run(["git", "rev-parse", "--verify", project.defaultBranch], { cwd: project.repositoryPath });
@@ -12648,6 +12729,7 @@ async function dispatch(args, runtime) {
       const priority = value(args, "--priority") ?? "medium";
       if (!["feature", "bug", "chore"].includes(type)) throw Object.assign(new Error(`\u65E0\u6548\u4EFB\u52A1\u7C7B\u578B\uFF1A${type}`), { code: "TASK_TYPE_INVALID" });
       if (!["low", "medium", "high", "urgent"].includes(priority)) throw Object.assign(new Error(`\u65E0\u6548\u4F18\u5148\u7EA7\uFF1A${priority}`), { code: "TASK_PRIORITY_INVALID" });
+      if (flag(args, "--create-issue") || flag(args, "--create-worktree")) forbidDemoExternalOperation(runtime.projects.get(projectId));
       return runtime.tasks.createTask({
         projectId,
         title,
@@ -12685,16 +12767,23 @@ async function dispatch(args, runtime) {
       const task = await runtime.tasks.updateProgress(id, { current: value(args, "--current", true), next: value(args, "--next", true) });
       return { task };
     }
-    if (action === "retry") return runtime.tasks.retryTask(id);
+    if (action === "retry") {
+      forbidDemoExternalOperation(projectForTask(runtime, id));
+      return runtime.tasks.retryTask(id);
+    }
     if (action === "pause") return { task: runtime.tasks.pauseTask(id) };
     if (action === "resume") return { task: runtime.tasks.resumeTask(id) };
     if (action === "complete") return { task: runtime.tasks.completeTask(id) };
     if (action === "reopen") return { task: runtime.tasks.reopenTask(id) };
-    if (action === "attach-issue") return { task: runtime.issues.attach(id, value(args, "--url", true)) };
+    if (action === "attach-issue") {
+      forbidDemoExternalOperation(projectForTask(runtime, id));
+      return { task: await runtime.issues.attach(id, value(args, "--url", true)) };
+    }
     if (action === "doctor") return runtime.doctor.check(id);
   }
   if (scope === "env") {
     if (!id) throw Object.assign(new Error("\u7F3A\u5C11\u4EFB\u52A1 ID"), { code: "CLI_ARGUMENT_REQUIRED" });
+    if (action === "start" || action === "stop") forbidDemoExternalOperation(projectForTask(runtime, id));
     if (action === "start") return { service: await runtime.environment.start(id, value(args, "--service", true)) };
     if (action === "stop") return { service: await runtime.environment.stop(id, value(args, "--service", true)) };
     if (action === "status") return { services: await runtime.environment.status(id) };

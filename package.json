@@ -13,7 +13,7 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test --run",
     "typecheck": "pnpm -r typecheck",
-    "wm": "pnpm --filter @work-manager/cli wm",
+    "wm": "pnpm --filter @work-manager/cli wm"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

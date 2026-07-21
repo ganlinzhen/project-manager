@@ -1,0 +1,19 @@
+id: project-manager # 项目名称
+name: Personal Work Manager
+taskPrefix: PWM
+repositoryPath: /Users/zhenganlin/Desktop/04-zhen/Project-Manager
+worktreeRoot: /Users/zhenganlin/Desktop/04-zhen/.work-manager-worktrees/project-manager
+defaultBranch: main
+
+issue:
+  provider: none
+
+development:
+  services:
+    desktop:
+      cwd: .
+      startCommand:
+        - pnpm
+        - desktop:dev
+      healthCheckUrl: http://localhost:1420
+      port: 1420

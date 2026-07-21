@@ -1,0 +1,23 @@
+{
+  "name": "personal-work-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "web:dev": "pnpm --filter @work-manager/desktop dev",
+    "desktop:dev": "pnpm --filter @work-manager/desktop tauri dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test --run",
+    "typecheck": "pnpm -r typecheck",
+    "wm": "pnpm --filter @work-manager/cli wm",
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

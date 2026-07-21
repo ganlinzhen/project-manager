@@ -1,0 +1,24 @@
+{
+  "name": "@work-manager/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "wm": "./dist/main.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "bundle": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --alias:@work-manager/core=../core/src/index.ts --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\" --outfile=../../apps/desktop/src-tauri/resources/wm.mjs",
+    "test": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "wm": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@work-manager/core": "workspace:*",
+    "commander": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

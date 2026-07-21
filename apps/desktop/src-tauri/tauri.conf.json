@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "工作管理器",
+  "version": "0.1.0",
+  "identifier": "dev.work-manager.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm --filter @work-manager/cli bundle && pnpm --filter @work-manager/desktop dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "工作管理器", "width": 1320, "height": 860, "minWidth": 860, "minHeight": 640 }],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/husky-workbench/32x32.png",
+      "icons/husky-workbench/128x128.png",
+      "icons/husky-workbench/128x128@2x.png",
+      "icons/husky-workbench/icon.icns",
+      "icons/husky-workbench/icon.ico"
+    ],
+    "resources": ["resources/wm.mjs"]
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+target/
+.DS_Store
+.worktrees/
+.superpowers/
+data/artifacts/*/
+*.db
+*.db-shm
+*.db-wal
+apps/desktop/.vite/

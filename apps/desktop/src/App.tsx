@@ -1,5 +1,6 @@
 import { FolderKanban, KanbanSquare, Settings } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { wmApi, type DesktopSettings } from './api/wm.js';
 import { ToastViewport, type Toast } from './components/ToastViewport.js';
 import { BoardPage } from './pages/BoardPage.js';
@@ -10,6 +11,8 @@ import { SettingsPage } from './pages/SettingsPage.js';
 import type { Feedback, ProjectDetail, ProjectSummary, TaskAction, TaskDetail, TaskSummary } from './types.js';
 
 type Page = 'board' | 'projects' | 'settings';
+
+const appLogo = new URL('../src-tauri/icons/icon-husky.png', import.meta.url).href;
 
 export default function App() {
   const [page, setPage] = useState<Page>('board');
@@ -171,14 +174,31 @@ export default function App() {
     }
   }
 
-  return <div className="app-shell">
-    <header className="topbar"><button className="brand" onClick={() => { setPage('board'); setDetail(null); setProjectDetail(null); }}><span>wm</span><strong>工作管理器</strong></button><nav aria-label="主导航"><button className={page === 'board' ? 'is-active' : ''} onClick={() => { setPage('board'); setDetail(null); setProjectDetail(null); }}><KanbanSquare size={17} />看板</button><button className={page === 'projects' ? 'is-active' : ''} onClick={() => { setPage('projects'); setDetail(null); setProjectDetail(null); }}><FolderKanban size={17} />项目</button><button className={page === 'settings' ? 'is-active' : ''} onClick={() => { setPage('settings'); setDetail(null); setProjectDetail(null); }}><Settings size={17} />设置</button></nav><span className="connection-state">本地数据</span></header>
-    <ToastViewport toasts={toasts} onDismiss={dismissToast} />
-    {projectDetail ? <ProjectDetailPage detail={projectDetail} onBack={() => setProjectDetail(null)} />
-      : detail ?
-      <TaskDetailPage detail={detail} pendingAction={pendingAction} onBack={() => setDetail(null)} onAction={handleAction} />
-      : page === 'board' ? <BoardPage tasks={tasks} loading={loading} onOpenTask={openTask} showArchived={showArchived} onShowArchived={selectArchived} />
-        : page === 'settings' ? <SettingsPage settings={settings} onSave={saveSettings} onInitialize={initializeCodexProject} onClearAndReset={clearAndReset} onChooseDirectory={wmApi.chooseDirectory} />
-          : <ProjectListPage projects={projects} loading={projectsLoading} syncing={syncingProjects} onSync={syncProjects} onOpenProject={openProject} />}
+  function startWindowDrag(event: React.MouseEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    void getCurrentWindow().startDragging();
+  }
+
+  return <div className="min-h-screen bg-background text-foreground">
+    <aside className="app-sidebar fixed inset-y-0 left-0 z-20 flex w-24 flex-col border-r bg-card max-sm:sticky max-sm:h-[58px] max-sm:w-full max-sm:flex-row max-sm:border-b max-sm:border-r-0">
+      <div className="h-9 shrink-0 max-sm:hidden" data-tauri-drag-region />
+      <button className="grid place-items-center border-0 bg-transparent p-2.5" aria-label="返回看板" onClick={() => { setPage('board'); setDetail(null); setProjectDetail(null); }}><img className="size-8 rounded-lg" src={appLogo} alt="" /></button>
+      <nav className="flex flex-col gap-1 px-2 max-sm:ml-auto max-sm:flex-row max-sm:items-center" aria-label="主导航">
+        <button className={`flex min-h-15 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition-colors hover:bg-muted ${page === 'board' ? 'bg-accent text-primary' : 'text-muted-foreground'}`} onClick={() => { setPage('board'); setDetail(null); setProjectDetail(null); }}><KanbanSquare size={19} />看板</button>
+        <button className={`flex min-h-15 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition-colors hover:bg-muted ${page === 'projects' ? 'bg-accent text-primary' : 'text-muted-foreground'}`} onClick={() => { setPage('projects'); setDetail(null); setProjectDetail(null); }}><FolderKanban size={19} />项目</button>
+        <button className={`flex min-h-15 flex-col items-center justify-center gap-1 rounded-lg text-xs font-semibold transition-colors hover:bg-muted ${page === 'settings' ? 'bg-accent text-primary' : 'text-muted-foreground'}`} onClick={() => { setPage('settings'); setDetail(null); setProjectDetail(null); }}><Settings size={19} />设置</button>
+      </nav>
+      <span className="mt-auto mb-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground before:size-1.5 before:rounded-full before:bg-emerald-600 max-sm:hidden">本地数据</span>
+    </aside>
+    <div className="window-drag-region fixed top-0 right-0 left-24 z-10 h-9 max-sm:hidden" onMouseDown={startWindowDrag} />
+    <div className="min-h-screen min-w-0 pl-24 max-sm:pl-0">
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+      {projectDetail ? <ProjectDetailPage detail={projectDetail} onBack={() => setProjectDetail(null)} />
+        : detail ?
+        <TaskDetailPage detail={detail} pendingAction={pendingAction} onBack={() => setDetail(null)} onAction={handleAction} />
+        : page === 'board' ? <BoardPage tasks={tasks} loading={loading} onOpenTask={openTask} showArchived={showArchived} onShowArchived={selectArchived} />
+          : page === 'settings' ? <SettingsPage settings={settings} onSave={saveSettings} onInitialize={initializeCodexProject} onClearAndReset={clearAndReset} onChooseDirectory={wmApi.chooseDirectory} />
+            : <ProjectListPage projects={projects} loading={projectsLoading} syncing={syncingProjects} onSync={syncProjects} onOpenProject={openProject} />}
+    </div>
   </div>;
 }

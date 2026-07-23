@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectDetail, ProjectSummary, TaskSummary } from './types.js';
@@ -20,8 +20,12 @@ const api = vi.hoisted(() => ({
   openArtifact: vi.fn(),
   openUrl: vi.fn()
 }));
+const nativeWindow = vi.hoisted(() => ({ startDragging: vi.fn() }));
 
 vi.mock('./api/wm.js', () => ({ wmApi: api }));
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => nativeWindow
+}));
 
 import App from './App.js';
 
@@ -76,6 +80,33 @@ describe('应用级项目初始化与重设', () => {
     await userEvent.click(screen.getByRole('button', { name: '设置' }));
     expect(screen.getByRole('button', { name: '清空并重新设置' })).toBeInTheDocument();
     expect(screen.getByLabelText('Codex 项目目录')).toHaveValue('/tmp/我的项目');
+  });
+
+  it('将主导航放入带有 macOS 顶部安全区的左侧栏', () => {
+    render(<App />);
+
+    const navigation = screen.getByRole('navigation', { name: '主导航' });
+    expect(navigation.closest('aside')).toHaveClass('app-sidebar');
+    expect(screen.getByRole('button', { name: '看板' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '项目' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '设置' })).toBeInTheDocument();
+  });
+
+  it('侧栏品牌只显示应用 Logo，不重复显示工作管理器文字', () => {
+    render(<App />);
+
+    const brand = screen.getByRole('button', { name: '返回看板' });
+    expect(brand.querySelector('img')).toHaveAttribute('src', expect.stringContaining('icon-husky.png'));
+    expect(screen.queryByText('工作管理器')).not.toBeInTheDocument();
+  });
+
+  it('在内容区顶部按下主鼠标键时调用原生窗口拖拽', () => {
+    render(<App />);
+
+    const dragRegion = document.querySelector('.window-drag-region');
+    expect(dragRegion).not.toBeNull();
+    fireEvent.mouseDown(dragRegion!, { button: 0 });
+    expect(nativeWindow.startDragging).toHaveBeenCalledTimes(1);
   });
 
   it('项目页同步配置后可打开数据库中的项目详情', async () => {

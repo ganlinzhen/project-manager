@@ -34,19 +34,19 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
 
   return (
     <div
-      className={`toast toast--${toast.kind}`}
+      className={`flex w-full items-start gap-3 rounded-lg border bg-card p-3 shadow-lg ${toast.kind === 'error' ? 'border-red-200 text-red-700' : 'border-emerald-200 text-emerald-700'}`}
       role={toast.kind === 'error' ? 'alert' : 'status'}
       onMouseEnter={pause}
       onMouseLeave={() => setPaused(false)}
     >
       {toast.kind === 'error' ? <CircleAlert size={18} /> : <CircleCheck size={18} />}
-      <div><strong>{toast.message}</strong>{toast.suggestion && <code>{toast.suggestion}</code>}</div>
-      <button className="icon-button" aria-label={`关闭${toast.message}`} onClick={() => onDismiss(toast.id)}><X size={16} /></button>
+      <div className="min-w-0 flex-1"><strong className="block text-sm">{toast.message}</strong>{toast.suggestion && <code className="mt-1 block whitespace-pre-wrap text-xs text-muted-foreground">{toast.suggestion}</code>}</div>
+      <button className="grid size-7 shrink-0 place-items-center rounded-md hover:bg-muted" aria-label={`关闭${toast.message}`} onClick={() => onDismiss(toast.id)}><X size={16} /></button>
     </div>
   );
 }
 
 export function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   if (!toasts.length) return null;
-  return <div className="toast-viewport" aria-label="操作通知">{toasts.slice(0, MAX_VISIBLE_TOASTS).map((toast) => <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />)}</div>;
+  return <div className="fixed top-12 left-1/2 z-30 flex w-[min(480px,calc(100vw-32px))] -translate-x-1/2 flex-col gap-2" aria-label="操作通知">{toasts.slice(0, MAX_VISIBLE_TOASTS).map((toast) => <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />)}</div>;
 }

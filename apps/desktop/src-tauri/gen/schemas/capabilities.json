@@ -1,1 +1,1 @@
-{"main-capability":{"identifier":"main-capability","description":"主窗口所需的基础能力与目录选择权限","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open"]}}
+{"main-capability":{"identifier":"main-capability","description":"主窗口所需的基础能力与目录选择权限","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-start-dragging","dialog:allow-open"]}}

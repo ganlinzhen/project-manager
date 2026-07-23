@@ -6,6 +6,8 @@ import { ProjectDetailPage } from '../pages/ProjectDetailPage.js';
 import { ProjectListPage } from '../pages/ProjectListPage.js';
 import { TaskDetailPage } from '../pages/TaskDetailPage.js';
 import { SettingsPage } from '../pages/SettingsPage.js';
+import { Button } from '../components/ui/Button.js';
+import { Input } from '../components/ui/Input.js';
 import type { ProjectDetail, ProjectSummary, TaskDetail, TaskSummary } from '../types.js';
 
 const active: TaskSummary = {
@@ -20,7 +22,30 @@ const project: ProjectSummary = {
   issue: { provider: 'none' }, serviceCount: 1
 };
 
+const secondProject: ProjectSummary = {
+  ...project,
+  id: 'workspace',
+  name: '工作台项目',
+  defaultBranch: 'develop'
+};
+
 describe('桌面端任务流', () => {
+  it('基础控件遵循 shadcn 的槽位与 Tailwind 原子类约定', () => {
+    render(<><Button>保存</Button><Input aria-label="项目名称" /></>);
+
+    expect(screen.getByRole('button', { name: '保存' })).toHaveAttribute('data-slot', 'button');
+    expect(screen.getByRole('button', { name: '保存' })).toHaveClass('inline-flex');
+    expect(screen.getByRole('textbox', { name: '项目名称' })).toHaveAttribute('data-slot', 'input');
+  });
+
+  it('搜索输入框聚焦时不显示绿色描边', () => {
+    render(<Input aria-label="搜索任务" />);
+    const input = screen.getByRole('textbox', { name: '搜索任务' });
+
+    expect(input).toHaveClass('focus-visible:ring-0');
+    expect(input).not.toHaveClass('focus-visible:ring-2');
+  });
+
   it('项目列表提供同步入口并打开项目详情', async () => {
     const onSync = vi.fn().mockResolvedValue(undefined);
     const onOpenProject = vi.fn();
@@ -30,6 +55,15 @@ describe('桌面端任务流', () => {
     expect(onSync).toHaveBeenCalledTimes(1);
     await userEvent.click(screen.getByRole('button', { name: 'Demo 项目' }));
     expect(onOpenProject).toHaveBeenCalledWith('demo');
+  });
+
+  it('项目列表可按名称、编号或默认分支搜索卡片', async () => {
+    render(<ProjectListPage projects={[project, secondProject]} loading={false} syncing={false} onSync={vi.fn()} onOpenProject={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole('searchbox', { name: '搜索项目' }), 'develop');
+
+    expect(screen.getByText('工作台项目')).toBeInTheDocument();
+    expect(screen.queryByText('Demo 项目')).not.toBeInTheDocument();
   });
 
   it('项目详情展示配置、Issue 和开发服务', () => {
@@ -57,8 +91,27 @@ describe('桌面端任务流', () => {
     expect(screen.queryByText('归档旧任务')).not.toBeInTheDocument();
   });
 
+  it('看板只保留搜索工具栏和任务状态列，不显示页面标题和统计', () => {
+    render(<BoardPage tasks={[active]} loading={false} onOpenTask={vi.fn()} />);
+
+    expect(screen.queryByRole('heading', { name: '任务看板' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '搜索任务' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(4);
+  });
+
+  it('看板与项目页使用同一种搜索工具栏，并把条件筛选收进右侧操作按钮', async () => {
+    render(<BoardPage tasks={[active, done]} loading={false} onOpenTask={vi.fn()} />);
+
+    expect(screen.getByRole('searchbox', { name: '搜索任务' })).toHaveAttribute('placeholder', '搜索标题、编号或下一步');
+    expect(screen.queryByLabelText('按状态筛选')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '筛选' }));
+    expect(screen.getByLabelText('按状态筛选')).toBeInTheDocument();
+  });
+
   it('可通过状态筛选查看完成任务', async () => {
     render(<BoardPage tasks={[active, done]} loading={false} onOpenTask={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: '筛选' }));
     await userEvent.selectOptions(screen.getByLabelText('按状态筛选'), 'done');
     expect(screen.getByText('归档旧任务')).toBeInTheDocument();
     expect(screen.queryByText('完成个人工作管理器')).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Clipboard, ExternalLink, FolderOpen, GitBranch, Pause, Play, RotateCcw, Server, Square } from 'lucide-react';
+import { Archive, ArrowLeft, CheckCircle2, Clipboard, ExternalLink, FolderOpen, GitBranch, Pause, Play, RotateCcw, Server, Square } from 'lucide-react';
 import type { TaskAction, TaskDetail } from '../types.js';
 
 const labels: Record<string, string> = { ready: '待开始', in_progress: '进行中', blocked: '已阻塞', paused: '已暂停', done: '已完成', cancelled: '已取消', creating: '准备中' };
@@ -21,6 +21,8 @@ export function TaskDetailPage({ detail, pendingAction, onBack, onAction }: {
           <button className="button button--secondary" onClick={() => onAction('copy-context')}><Clipboard size={16} />复制 Codex 上下文</button>
           {task.status === 'paused' ? <button className="button" disabled={Boolean(pendingAction)} onClick={() => onAction('resume')}><RotateCcw size={16} />恢复任务</button> : canPause && <button className="button button--secondary" disabled={Boolean(pendingAction)} onClick={() => onAction('pause')}><Pause size={16} />暂停任务</button>}
           {canComplete && <button className="button" disabled={Boolean(pendingAction)} onClick={() => onAction('complete')}><CheckCircle2 size={16} />标记完成</button>}
+          {task.archivedAt ? <button className="button" disabled={Boolean(pendingAction)} onClick={() => onAction('restore')}><RotateCcw size={16} />恢复任务</button>
+            : <button className="button button--secondary" disabled={Boolean(pendingAction)} onClick={() => { if (window.confirm('归档后任务将从默认看板隐藏，但不会删除数据。')) void onAction('archive', { reason: '用户归档' }); }}><Archive size={16} />归档任务</button>}
         </div>
       </header>
       <div className="detail-layout">

@@ -11803,6 +11803,9 @@ var WorkManagerDatabase = class {
     if (!serviceColumns.some((column) => column.name === "process_identity")) {
       this.connection.exec("ALTER TABLE development_services ADD COLUMN process_identity TEXT");
     }
+    const taskColumns = this.connection.prepare("PRAGMA table_info(tasks)").all();
+    if (!taskColumns.some((column) => column.name === "archived_at")) this.connection.exec("ALTER TABLE tasks ADD COLUMN archived_at TEXT");
+    if (!taskColumns.some((column) => column.name === "archived_reason")) this.connection.exec("ALTER TABLE tasks ADD COLUMN archived_reason TEXT");
   }
   transaction(operation) {
     this.connection.exec("BEGIN IMMEDIATE");
@@ -12257,6 +12260,8 @@ function mapTask(row) {
     worktreePath: row.worktree_path == null ? null : String(row.worktree_path),
     createIssueRequested: boolean(row.create_issue_requested),
     createWorktreeRequested: boolean(row.create_worktree_requested),
+    archivedAt: row.archived_at == null ? null : String(row.archived_at),
+    archivedReason: row.archived_reason == null ? null : String(row.archived_reason),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at)
   };
@@ -12356,8 +12361,29 @@ var TaskRepository = class {
       const query = `%${filters.query}%`;
       values.push(query, query, query);
     }
+    where.push(filters.archived ? "archived_at IS NOT NULL" : "archived_at IS NULL");
     const sql = `SELECT * FROM tasks ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY updated_at DESC`;
     return this.database.connection.prepare(sql).all(...values).map(mapTask);
+  }
+  archiveTask(id, reason) {
+    return this.database.transaction(() => {
+      const task = this.requireTask(id);
+      if (task.archivedAt) return task;
+      const archivedAt = now2();
+      this.database.connection.prepare("UPDATE tasks SET archived_at = ?, archived_reason = ?, updated_at = ? WHERE id = ?").run(archivedAt, reason, archivedAt, id);
+      this.appendEvent(id, "task_archived", true, "\u4EFB\u52A1\u5DF2\u5F52\u6863", { reason });
+      return this.requireTask(id);
+    });
+  }
+  restoreTask(id) {
+    return this.database.transaction(() => {
+      const task = this.requireTask(id);
+      if (!task.archivedAt) throw new WorkManagerError("TASK_NOT_ARCHIVED", `\u4EFB\u52A1\u672A\u5F52\u6863\uFF1A${id}`);
+      const timestamp = now2();
+      this.database.connection.prepare("UPDATE tasks SET archived_at = NULL, archived_reason = NULL, updated_at = ? WHERE id = ?").run(timestamp, id);
+      this.appendEvent(id, "task_restored", true, "\u4EFB\u52A1\u5DF2\u6062\u590D");
+      return this.requireTask(id);
+    });
   }
   updateTask(id, values) {
     const mapping = {
@@ -12537,6 +12563,14 @@ var TaskService = class {
   changeStatus(taskId, status, message) {
     return this.repository.transition(taskId, status, message);
   }
+  archiveTask(taskId, reason) {
+    const normalized = reason.trim();
+    if (!normalized) throw new WorkManagerError("TASK_ARCHIVE_REASON_REQUIRED", "\u5F52\u6863\u539F\u56E0\u4E0D\u80FD\u4E3A\u7A7A");
+    return this.repository.archiveTask(taskId, normalized);
+  }
+  restoreTask(taskId) {
+    return this.repository.restoreTask(taskId);
+  }
   pauseTask(taskId) {
     return this.changeStatus(taskId, "paused", "\u4EFB\u52A1\u5DF2\u6682\u505C");
   }
@@ -12679,7 +12713,7 @@ async function createRuntime(options) {
   const environment = new EnvironmentService(repository, resolveProject, processes);
   const doctor = new DoctorService(repository, resolveProject, processes, { issues, workspace });
   for (const project of projects.values()) await seedDemoProject(project, tasks);
-  return { database, projects, repository, artifacts, tasks, issues, workspace, environment, doctor };
+  return { managerRoot, database, projects, repository, artifacts, tasks, issues, workspace, environment, doctor };
 }
 function forbidDemoExternalOperation(project) {
   if (project?.mode === "demo") {
@@ -12706,6 +12740,22 @@ async function dispatch(args, runtime) {
   if (!scope || flag(args, "--help") || scope === "help") return help();
   if (scope === "project" && (action === "list" || action === "sync")) {
     return { projects: runtime.repository.listProjects().map(projectSummary) };
+  }
+  if (scope === "workspace" && action === "doctor") {
+    const requirements = [
+      { key: "harness", path: path8.join(runtime.managerRoot, "work-manager-harness.json") },
+      { key: "projects", path: path8.join(runtime.managerRoot, "projects") },
+      { key: "artifacts", path: path8.join(runtime.managerRoot, "data", "artifacts") }
+    ];
+    const checks = await Promise.all(requirements.map(async (item) => {
+      try {
+        await access2(item.path);
+        return { key: item.key, ok: true, path: item.path };
+      } catch {
+        return { key: item.key, ok: false, path: item.path, message: "\u7F3A\u5C11\u5DE5\u4F5C\u76EE\u5F55\u5FC5\u9700\u7ED3\u6784" };
+      }
+    }));
+    return { valid: checks.every((check) => check.ok), checks };
   }
   if (scope === "project" && action === "show") {
     if (!id) throw Object.assign(new Error("\u7F3A\u5C11\u9879\u76EE ID"), { code: "CLI_ARGUMENT_REQUIRED" });
@@ -12761,7 +12811,8 @@ async function dispatch(args, runtime) {
     }
     if (action === "list") {
       const requestedStatus = value(args, "--status");
-      let tasks = runtime.repository.listTasks({ projectId: value(args, "--project"), status: requestedStatus, query: value(args, "--search") });
+      const archived = flag(args, "--archived");
+      let tasks = runtime.repository.listTasks({ projectId: value(args, "--project"), status: requestedStatus, query: value(args, "--search"), archived });
       if (!requestedStatus && !flag(args, "--all")) tasks = tasks.filter((task) => ["ready", "in_progress", "blocked", "paused"].includes(task.status));
       const priority = value(args, "--priority");
       if (priority) tasks = tasks.filter((task) => task.priority === priority);
@@ -12794,6 +12845,8 @@ async function dispatch(args, runtime) {
     if (action === "resume") return { task: runtime.tasks.resumeTask(id) };
     if (action === "complete") return { task: runtime.tasks.completeTask(id) };
     if (action === "reopen") return { task: runtime.tasks.reopenTask(id) };
+    if (action === "archive") return { task: runtime.tasks.archiveTask(id, value(args, "--reason", true)) };
+    if (action === "restore") return { task: runtime.tasks.restoreTask(id) };
     if (action === "attach-issue") {
       forbidDemoExternalOperation(projectForTask(runtime, id));
       return { task: await runtime.issues.attach(id, value(args, "--url", true)) };
@@ -12813,8 +12866,9 @@ function help() {
   return {
     usage: "wm <scope> <command> [options] --json",
     commands: [
+      "workspace doctor",
       "project list|sync|show|validate",
-      "task create|list|show|progress|retry|pause|resume|complete|reopen|attach-issue|doctor",
+      "task create|list|show|progress|retry|pause|resume|complete|reopen|archive|restore|attach-issue|doctor",
       "env start|stop|status"
     ]
   };

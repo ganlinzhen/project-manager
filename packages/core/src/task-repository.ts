@@ -25,6 +25,8 @@ function mapTask(row: SqlRow): TaskRecord {
     pullRequestUrl: row.pull_request_url == null ? null : String(row.pull_request_url),
     branchName: row.branch_name == null ? null : String(row.branch_name), worktreePath: row.worktree_path == null ? null : String(row.worktree_path),
     createIssueRequested: boolean(row.create_issue_requested), createWorktreeRequested: boolean(row.create_worktree_requested),
+    archivedAt: row.archived_at == null ? null : String(row.archived_at),
+    archivedReason: row.archived_reason == null ? null : String(row.archived_reason),
     createdAt: String(row.created_at), updatedAt: String(row.updated_at)
   };
 }
@@ -100,14 +102,38 @@ export class TaskRepository {
     return task;
   }
 
-  listTasks(filters: { projectId?: string; status?: TaskStatus; query?: string } = {}): TaskRecord[] {
+  listTasks(filters: { projectId?: string; status?: TaskStatus; query?: string; archived?: boolean } = {}): TaskRecord[] {
     const where: string[] = [];
     const values: Array<string | number> = [];
     if (filters.projectId) { where.push('project_id = ?'); values.push(filters.projectId); }
     if (filters.status) { where.push('status = ?'); values.push(filters.status); }
     if (filters.query) { where.push('(title LIKE ? OR id LIKE ? OR next_action LIKE ?)'); const query = `%${filters.query}%`; values.push(query, query, query); }
+    where.push(filters.archived ? 'archived_at IS NOT NULL' : 'archived_at IS NULL');
     const sql = `SELECT * FROM tasks ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY updated_at DESC`;
     return (this.database.connection.prepare(sql).all(...values) as SqlRow[]).map(mapTask);
+  }
+
+  archiveTask(id: string, reason: string): TaskRecord {
+    return this.database.transaction(() => {
+      const task = this.requireTask(id);
+      if (task.archivedAt) return task;
+      const archivedAt = now();
+      this.database.connection.prepare('UPDATE tasks SET archived_at = ?, archived_reason = ?, updated_at = ? WHERE id = ?')
+        .run(archivedAt, reason, archivedAt, id);
+      this.appendEvent(id, 'task_archived', true, '任务已归档', { reason });
+      return this.requireTask(id);
+    });
+  }
+
+  restoreTask(id: string): TaskRecord {
+    return this.database.transaction(() => {
+      const task = this.requireTask(id);
+      if (!task.archivedAt) throw new WorkManagerError('TASK_NOT_ARCHIVED', `任务未归档：${id}`);
+      const timestamp = now();
+      this.database.connection.prepare('UPDATE tasks SET archived_at = NULL, archived_reason = NULL, updated_at = ? WHERE id = ?').run(timestamp, id);
+      this.appendEvent(id, 'task_restored', true, '任务已恢复');
+      return this.requireTask(id);
+    });
   }
 
   updateTask(id: string, values: Partial<Pick<TaskRecord,

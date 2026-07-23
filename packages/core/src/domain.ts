@@ -49,6 +49,8 @@ export interface TaskRecord {
   worktreePath: string | null;
   createIssueRequested: boolean;
   createWorktreeRequested: boolean;
+  archivedAt: string | null;
+  archivedReason: string | null;
   createdAt: string;
   updatedAt: string;
 }

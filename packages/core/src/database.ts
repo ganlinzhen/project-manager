@@ -93,6 +93,9 @@ export class WorkManagerDatabase {
     if (!serviceColumns.some((column) => column.name === 'process_identity')) {
       this.connection.exec('ALTER TABLE development_services ADD COLUMN process_identity TEXT');
     }
+    const taskColumns = this.connection.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>;
+    if (!taskColumns.some((column) => column.name === 'archived_at')) this.connection.exec('ALTER TABLE tasks ADD COLUMN archived_at TEXT');
+    if (!taskColumns.some((column) => column.name === 'archived_reason')) this.connection.exec('ALTER TABLE tasks ADD COLUMN archived_reason TEXT');
   }
 
   transaction<T>(operation: () => T): T {

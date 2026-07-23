@@ -17,6 +17,7 @@ export type CliResponse = { ok: true; data: unknown } | {
 };
 
 interface Runtime {
+  managerRoot: string;
   database: WorkManagerDatabase;
   projects: Map<string, ProjectConfig>;
   repository: TaskRepository;
@@ -70,7 +71,7 @@ async function createRuntime(options: CliRuntimeOptions): Promise<Runtime> {
   const environment = new EnvironmentService(repository, resolveProject, processes);
   const doctor = new DoctorService(repository, resolveProject, processes, { issues, workspace });
   for (const project of projects.values()) await seedDemoProject(project, tasks);
-  return { database, projects, repository, artifacts, tasks, issues, workspace, environment, doctor };
+  return { managerRoot, database, projects, repository, artifacts, tasks, issues, workspace, environment, doctor };
 }
 
 function forbidDemoExternalOperation(project: ProjectConfig | undefined): void {
@@ -101,6 +102,18 @@ async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
   if (!scope || flag(args, '--help') || scope === 'help') return help();
   if (scope === 'project' && (action === 'list' || action === 'sync')) {
     return { projects: runtime.repository.listProjects().map(projectSummary) };
+  }
+  if (scope === 'workspace' && action === 'doctor') {
+    const requirements = [
+      { key: 'harness', path: path.join(runtime.managerRoot, 'work-manager-harness.json') },
+      { key: 'projects', path: path.join(runtime.managerRoot, 'projects') },
+      { key: 'artifacts', path: path.join(runtime.managerRoot, 'data', 'artifacts') }
+    ];
+    const checks = await Promise.all(requirements.map(async (item) => {
+      try { await access(item.path); return { key: item.key, ok: true, path: item.path }; }
+      catch { return { key: item.key, ok: false, path: item.path, message: '缺少工作目录必需结构' }; }
+    }));
+    return { valid: checks.every((check) => check.ok), checks };
   }
   if (scope === 'project' && action === 'show') {
     if (!id) throw Object.assign(new Error('缺少项目 ID'), { code: 'CLI_ARGUMENT_REQUIRED' });
@@ -151,7 +164,8 @@ async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
     }
     if (action === 'list') {
       const requestedStatus = value(args, '--status') as TaskStatus | undefined;
-      let tasks = runtime.repository.listTasks({ projectId: value(args, '--project'), status: requestedStatus, query: value(args, '--search') });
+      const archived = flag(args, '--archived');
+      let tasks = runtime.repository.listTasks({ projectId: value(args, '--project'), status: requestedStatus, query: value(args, '--search'), archived });
       if (!requestedStatus && !flag(args, '--all')) tasks = tasks.filter((task) => ['ready', 'in_progress', 'blocked', 'paused'].includes(task.status));
       const priority = value(args, '--priority');
       if (priority) tasks = tasks.filter((task) => task.priority === priority);
@@ -184,6 +198,8 @@ async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
     if (action === 'resume') return { task: runtime.tasks.resumeTask(id) };
     if (action === 'complete') return { task: runtime.tasks.completeTask(id) };
     if (action === 'reopen') return { task: runtime.tasks.reopenTask(id) };
+    if (action === 'archive') return { task: runtime.tasks.archiveTask(id, value(args, '--reason', true)!) };
+    if (action === 'restore') return { task: runtime.tasks.restoreTask(id) };
     if (action === 'attach-issue') {
       forbidDemoExternalOperation(projectForTask(runtime, id));
       return { task: await runtime.issues.attach(id, value(args, '--url', true)!) };
@@ -204,7 +220,7 @@ function help(): { usage: string; commands: string[] } {
   return {
     usage: 'wm <scope> <command> [options] --json',
     commands: [
-      'project list|sync|show|validate', 'task create|list|show|progress|retry|pause|resume|complete|reopen|attach-issue|doctor',
+      'workspace doctor', 'project list|sync|show|validate', 'task create|list|show|progress|retry|pause|resume|complete|reopen|archive|restore|attach-issue|doctor',
       'env start|stop|status'
     ]
   };

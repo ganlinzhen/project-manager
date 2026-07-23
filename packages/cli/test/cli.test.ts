@@ -14,10 +14,12 @@ async function runtime() {
   const projectsDir = path.join(root, 'projects');
   await mkdir(repositoryPath, { recursive: true });
   await mkdir(projectsDir, { recursive: true });
+  await mkdir(path.join(root, 'data', 'artifacts'), { recursive: true });
   await writeFile(path.join(projectsDir, 'demo.yaml'), [
     'id: demo', 'name: Demo', 'taskPrefix: DEMO', `repositoryPath: ${repositoryPath}`, 'defaultBranch: main',
     'issue:', '  provider: none', 'development:', '  services: {}'
   ].join('\n'));
+  await writeFile(path.join(root, 'work-manager-harness.json'), '{"schemaVersion":1}');
   return { managerRoot: root, projectsDir, databasePath: path.join(root, 'wm.db') };
 }
 
@@ -40,6 +42,11 @@ async function run(args: string[], config: Awaited<ReturnType<typeof runtime>>):
 }
 
 describe('wm CLI JSON 闭环', () => {
+  it('诊断工作目录 Harness 的必要结构', async () => {
+    const config = await runtime();
+    const diagnosis = await run(['workspace', 'doctor', '--json'], config);
+    expect(diagnosis).toMatchObject({ ok: true, data: { valid: true, checks: expect.arrayContaining([expect.objectContaining({ key: 'harness', ok: true })]) } });
+  });
   it('列出、查看并显式同步数据库中的项目配置', async () => {
     const config = await runtime();
 
@@ -125,6 +132,16 @@ describe('wm CLI JSON 闭环', () => {
     expect(done).toMatchObject({ ok: true, data: { tasks: [{ id: 'DEMO-2' }] } });
     const all = await run(['task', 'list', '--all', '--json'], config);
     expect(all.ok && (all.data as { tasks: Array<{ id: string }> }).tasks.map((task) => task.id).sort()).toEqual(['DEMO-1', 'DEMO-2']);
+  });
+
+  it('以稳定 JSON 契约归档和恢复任务', async () => {
+    const config = await runtime();
+    await run(['task', 'create', '--project', 'demo', '--title', '归档闭环', '--json'], config);
+    const archived = await run(['task', 'archive', 'DEMO-1', '--reason', '重复需求', '--json'], config);
+    expect(archived).toMatchObject({ ok: true, data: { task: { id: 'DEMO-1', status: 'ready', archivedReason: '重复需求', archivedAt: expect.any(String) } } });
+    expect(await run(['task', 'list', '--json'], config)).toMatchObject({ ok: true, data: { tasks: [] } });
+    expect(await run(['task', 'list', '--archived', '--json'], config)).toMatchObject({ ok: true, data: { tasks: [{ id: 'DEMO-1' }] } });
+    expect(await run(['task', 'restore', 'DEMO-1', '--json'], config)).toMatchObject({ ok: true, data: { task: { archivedAt: null, archivedReason: null } } });
   });
 
   it('在真实临时 Git 仓库中跑通 worktree、命名服务和 doctor', async () => {

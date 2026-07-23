@@ -175,6 +175,25 @@ describe('任务存储和闭环', () => {
     expect(repository.listEvents(created.task.id).at(-1)?.type).toBe('progress_updated');
   });
 
+  it('归档任务时保留业务状态、工件和审计记录，并可恢复', async () => {
+    const { repository, project, managerRoot } = await fixture();
+    const service = new TaskService(repository, new ArtifactService(managerRoot, repository), () => project);
+    const created = await service.createTask({ projectId: 'demo', title: '可归档任务', type: 'feature', priority: 'high' });
+    await service.updateProgress(created.task.id, { current: '实现中', next: '验证归档' });
+
+    const archived = service.archiveTask(created.task.id, '不再需要');
+    expect(archived).toMatchObject({ status: 'ready', archivedReason: '不再需要', archivedAt: expect.any(String) });
+    expect(repository.listTasks()).toHaveLength(0);
+    expect(repository.listTasks({ archived: true })).toMatchObject([{ id: created.task.id, status: 'ready' }]);
+    expect(repository.listArtifacts(created.task.id)).toHaveLength(5);
+    expect(repository.listEvents(created.task.id).at(-1)).toMatchObject({ type: 'task_archived', metadata: { reason: '不再需要' } });
+
+    const restored = service.restoreTask(created.task.id);
+    expect(restored).toMatchObject({ status: 'ready', archivedAt: null, archivedReason: null });
+    expect(repository.listTasks()).toMatchObject([{ id: created.task.id }]);
+    expect(repository.listEvents(created.task.id).at(-1)).toMatchObject({ type: 'task_restored' });
+  });
+
   it('进展文件写入失败时记录可诊断失败事件', async () => {
     const { repository, project } = await fixture();
     const task = repository.createTask(project, { title: '失败记录', type: 'bug', priority: 'high' });

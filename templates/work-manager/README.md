@@ -35,6 +35,11 @@
 - `project-rules/*.md`：项目的分支、合并、部署和验证约定。
 - `data/artifacts/<任务 ID>/`：任务自动生成的需求、上下文、计划、进展和完成总结。
 - `docs/`：仓库级规范和决策记录。
+- `work-manager-harness.json`：工作目录的数据所有权与 Codex 操作协议。
+
+## Codex 安全操作
+
+初始化后的目录包含 `.work-manager/bin/wm` 受控入口。Codex 处理任务时使用该入口并始终带 `--json`；成功后以 `task show` 或 `task doctor` 复核。任务“删除”是可恢复归档，不会删除工件、SQLite 数据或审计事件。
 
 ## Demo 项目
 

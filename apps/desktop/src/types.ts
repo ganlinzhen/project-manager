@@ -59,6 +59,8 @@ export interface TaskSummary {
   branchName?: string | null;
   issueUrl?: string | null;
   pullRequestUrl?: string | null;
+  archivedAt?: string | null;
+  archivedReason?: string | null;
   services: ServiceSummary[];
 }
 
@@ -81,5 +83,5 @@ export interface TaskDetail {
   services: ServiceSummary[];
 }
 
-export type TaskAction = 'start-service' | 'stop-service' | 'pause' | 'resume' | 'complete' | 'copy-context' | 'open-worktree' | 'open-artifact' | 'open-url';
+export type TaskAction = 'start-service' | 'stop-service' | 'pause' | 'resume' | 'complete' | 'archive' | 'restore' | 'copy-context' | 'open-worktree' | 'open-artifact' | 'open-url';
 export interface Feedback { kind: 'success' | 'error'; message: string; suggestion?: string; }

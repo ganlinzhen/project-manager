@@ -13,6 +13,9 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test --run",
     "typecheck": "pnpm -r typecheck",
+    "check:code": "pnpm build && pnpm typecheck && pnpm test",
+    "check:native": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "verify": "pnpm check:code && pnpm check:native && git diff --check",
     "wm": "pnpm --filter @work-manager/cli wm"
   },
   "devDependencies": {

@@ -84,6 +84,14 @@ export class TaskService {
     return this.repository.transition(taskId, status, message);
   }
 
+  archiveTask(taskId: string, reason: string): TaskRecord {
+    const normalized = reason.trim();
+    if (!normalized) throw new WorkManagerError('TASK_ARCHIVE_REASON_REQUIRED', '归档原因不能为空');
+    return this.repository.archiveTask(taskId, normalized);
+  }
+
+  restoreTask(taskId: string): TaskRecord { return this.repository.restoreTask(taskId); }
+
   pauseTask(taskId: string): TaskRecord { return this.changeStatus(taskId, 'paused', '任务已暂停'); }
   resumeTask(taskId: string): TaskRecord { return this.changeStatus(taskId, 'in_progress', '任务已恢复'); }
   completeTask(taskId: string): TaskRecord { return this.changeStatus(taskId, 'done', '任务已完成，资源保留'); }

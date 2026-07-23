@@ -16,6 +16,14 @@
 - 用户明确要求设计文档、计划或其他交付文档时，才生成该文档；即使生成，仍需在 `change.log` 留痕。
 - 不因等待设计确认或计划评审而阻塞范围清晰的实现；风险操作仍遵守下方规则。
 
+## 数据操作协议
+
+- 先读取 `work-manager-harness.json`。SQLite 只能由桌面应用或受控 `wm` 命令写入，禁止直接修改数据库。
+- `data/artifacts/` 是任务服务生成的事实副本；禁止手工创建、删除或伪造其中的任务状态。
+- 在本目录使用 `.work-manager/bin/wm <命令> --json` 操作任务；必须检查返回 JSON 的 `ok` 字段。成功后运行 `task show <任务 ID> --json` 或 `task doctor <任务 ID> --json` 验证。
+- 删除任务一律使用 `task archive <任务 ID> --reason <原因> --json`。归档可用 `task restore <任务 ID> --json` 恢复，绝不删除 SQLite 行、工件或事件。
+- 修改 `projects/*.yaml` 后必须运行 `project validate <项目 ID> --json`；不要把 YAML、`change.log` 或 Markdown 当作 SQLite 状态的替代品。
+
 ## 风险操作
 
 未读取项目规则，或规则不存在时，先说明缺失并获得确认；不得直接执行会影响项目的 Git、合并、发布、远程 Issue、外部服务或数据删除操作。

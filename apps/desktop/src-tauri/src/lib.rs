@@ -28,6 +28,8 @@ fn allowed(args: &[String]) -> bool {
             | ("task", "pause")
             | ("task", "resume")
             | ("task", "complete")
+            | ("task", "archive")
+            | ("task", "restore")
             | ("task", "doctor")
             | ("env", "start")
             | ("env", "stop")
@@ -122,6 +124,19 @@ fn template_path(app: &AppHandle) -> Result<PathBuf, String> {
         return Err(format!("应用内置项目模板缺失：{}", template.display()));
     }
     Ok(template)
+}
+
+fn write_workspace_wm_entrypoint(app: &AppHandle, root: &Path) -> Result<(), String> {
+    let resource = app.path().resource_dir().map_err(|error| format!("无法定位应用资源目录：{error}"))?.join("resources/wm.mjs");
+    if !resource.is_file() { return Err(format!("应用内置 wm 资源缺失：{}", resource.display())); }
+    let bin = root.join(".work-manager/bin");
+    fs::create_dir_all(&bin).map_err(|error| format!("无法创建工作目录入口：{error}"))?;
+    let resource = resource.to_string_lossy().replace('"', "\\\"");
+    let script = format!("#!/bin/sh\nset -eu\nROOT=\"$(CDPATH= cd -- \"$(dirname -- \"$0\")/../..\" && pwd)\"\nexport WM_MANAGER_ROOT=\"$ROOT\"\nexport WM_PROJECTS_DIR=\"$ROOT/projects\"\nexec \"${{WM_NODE_BIN:-node}}\" \"{resource}\" \"$@\"\n");
+    let path = bin.join("wm");
+    fs::write(&path, script).map_err(|error| format!("无法写入工作目录入口：{error}"))?;
+    #[cfg(unix)] { use std::os::unix::fs::PermissionsExt; fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).map_err(|error| format!("无法设置工作目录入口权限：{error}"))?; }
+    Ok(())
 }
 
 fn save_settings(app: &AppHandle, settings: DesktopSettings) -> Result<DesktopSettings, String> {
@@ -307,6 +322,10 @@ fn initialize_codex_project(
         remove_empty_directory(&target);
         return Err(error);
     }
+    if let Err(error) = write_workspace_wm_entrypoint(&app, &target) {
+        remove_empty_directory(&target);
+        return Err(error);
+    }
     let settings = read_settings(&app)?;
     let next_settings = DesktopSettings {
         manager_root: Some(validate_manager_root(&target)?),
@@ -468,6 +487,16 @@ mod tests {
         assert!(prepare_project_target(&root, "我的项目").is_err());
         assert!(validate_project_name("../危险").is_err());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn 工作目录模板声明数据所有权_harness() {
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../templates/work-manager/work-manager-harness.json");
+        assert!(manifest.is_file());
+        let content = fs::read_to_string(manifest).unwrap();
+        assert!(content.contains("sqlite"));
+        assert!(content.contains("data/artifacts"));
     }
 
     #[test]

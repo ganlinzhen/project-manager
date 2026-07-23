@@ -10,14 +10,14 @@ const columns: Array<{ status: TaskStatus; title: string; note: string }> = [
   { status: 'paused', title: '已暂停', note: '稍后恢复' }
 ];
 
-export function BoardPage({ tasks, loading, onOpenTask }: { tasks: TaskSummary[]; loading: boolean; onOpenTask: (id: string) => void }) {
+export function BoardPage({ tasks, loading, onOpenTask, showArchived = false, onShowArchived }: { tasks: TaskSummary[]; loading: boolean; onOpenTask: (id: string) => void; showArchived?: boolean; onShowArchived?: (value: boolean) => void }) {
   const [query, setQuery] = useState('');
   const [project, setProject] = useState('all');
-  const [status, setStatus] = useState<TaskStatus | 'active'>('active');
+  const [status, setStatus] = useState<TaskStatus | 'active' | 'archived'>(showArchived ? 'archived' : 'active');
   const [priority, setPriority] = useState<TaskPriority | 'all'>('all');
   const projects = [...new Set(tasks.map((task) => task.projectId))].sort();
   const filtered = useMemo(() => tasks.filter((task) => {
-    const statusMatch = status === 'active' ? ['in_progress', 'blocked', 'ready', 'paused'].includes(task.status) : task.status === status;
+    const statusMatch = status === 'active' ? ['in_progress', 'blocked', 'ready', 'paused'].includes(task.status) : status === 'archived' ? true : task.status === status;
     return statusMatch && (project === 'all' || task.projectId === project) && (priority === 'all' || task.priority === priority)
       && (!query || `${task.id} ${task.title} ${task.nextAction ?? ''}`.toLowerCase().includes(query.toLowerCase()));
   }), [priority, project, query, status, tasks]);
@@ -32,7 +32,7 @@ export function BoardPage({ tasks, loading, onOpenTask }: { tasks: TaskSummary[]
         <label className="search-field"><Search size={17} /><span className="sr-only">搜索任务</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、编号或下一步" /></label>
         <SlidersHorizontal size={17} aria-hidden="true" />
         <label><span className="sr-only">按项目筛选</span><select aria-label="按项目筛选" value={project} onChange={(event) => setProject(event.target.value)}><option value="all">全部项目</option>{projects.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <label><span className="sr-only">按状态筛选</span><select aria-label="按状态筛选" value={status} onChange={(event) => setStatus(event.target.value as TaskStatus | 'active')}><option value="active">活跃状态</option><option value="in_progress">进行中</option><option value="blocked">已阻塞</option><option value="ready">待开始</option><option value="paused">已暂停</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></label>
+        <label><span className="sr-only">按状态筛选</span><select aria-label="按状态筛选" value={status} onChange={(event) => { const value = event.target.value as TaskStatus | 'active' | 'archived'; setStatus(value); onShowArchived?.(value === 'archived'); }}><option value="active">活跃状态</option><option value="in_progress">进行中</option><option value="blocked">已阻塞</option><option value="ready">待开始</option><option value="paused">已暂停</option><option value="done">已完成</option><option value="cancelled">已取消</option><option value="archived">已归档</option></select></label>
         <label><span className="sr-only">按优先级筛选</span><select aria-label="按优先级筛选" value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority | 'all')}><option value="all">全部优先级</option><option value="urgent">紧急</option><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></label>
       </section>
       {loading ? <div className="board-skeleton" aria-label="正在加载任务">{[1, 2, 3].map((item) => <span key={item} />)}</div> : filtered.length === 0 ? (

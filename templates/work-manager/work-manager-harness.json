@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "dataAuthority": {
+    "sqlite": "app-cli-only",
+    "artifacts": "task-service-only",
+    "artifactRoot": "data/artifacts",
+    "projectConfig": "projects-yaml-then-validate"
+  },
+  "codexProtocol": [
+    "read-project-rules",
+    "run-managed-wm-json",
+    "verify-task-show-or-doctor"
+  ]
+}

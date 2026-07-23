@@ -14,6 +14,7 @@ type Page = 'board' | 'projects' | 'settings';
 export default function App() {
   const [page, setPage] = useState<Page>('board');
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [projectDetail, setProjectDetail] = useState<ProjectDetail | null>(null);
@@ -34,11 +35,11 @@ export default function App() {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
-  const loadTasks = useCallback(async () => {
+  const loadTasks = useCallback(async (options: { archived?: boolean } = {}) => {
     const generation = ++taskLoadGeneration.current;
     setLoading(true);
     try {
-      const loaded = await wmApi.listTasks();
+      const loaded = await wmApi.listTasks({ archived: options.archived ?? showArchived });
       if (taskLoadGeneration.current !== generation) return false;
       setTasks(loaded);
       return true;
@@ -50,7 +51,7 @@ export default function App() {
     } finally {
       if (taskLoadGeneration.current === generation) setLoading(false);
     }
-  }, [pushToast]);
+  }, [pushToast, showArchived]);
   useEffect(() => { void loadTasks(); }, [loadTasks]);
   useEffect(() => { void wmApi.getSettings().then(setSettings).catch(() => undefined); }, []);
 
@@ -110,6 +111,8 @@ export default function App() {
       } else if (action === 'start-service' || action === 'stop-service') {
         await wmApi.serviceAction(id, action === 'start-service' ? 'start' : 'stop', data.serviceKey!);
       } else if (action === 'pause' || action === 'resume' || action === 'complete') await wmApi.taskAction(id, action);
+      else if (action === 'archive') await wmApi.taskAction(id, action, { reason: data.reason });
+      else if (action === 'restore') await wmApi.taskAction(id, action);
       else if (action === 'open-worktree') await wmApi.openWorktree(id);
       else if (action === 'open-artifact') await wmApi.openArtifact(id, data.kind!);
       else if (action === 'open-url') await wmApi.openUrl(data.url!);
@@ -119,6 +122,11 @@ export default function App() {
       const candidate = error as Error & { suggestion?: string };
       pushToast({ kind: 'error', message: candidate.message, suggestion: candidate.suggestion });
     } finally { setPendingAction(null); }
+  }
+
+  function selectArchived(next: boolean) {
+    setShowArchived(next);
+    void loadTasks({ archived: next });
   }
 
   async function saveSettings(value: { managerRoot: string; nodePath: string }) {
@@ -169,7 +177,7 @@ export default function App() {
     {projectDetail ? <ProjectDetailPage detail={projectDetail} onBack={() => setProjectDetail(null)} />
       : detail ?
       <TaskDetailPage detail={detail} pendingAction={pendingAction} onBack={() => setDetail(null)} onAction={handleAction} />
-      : page === 'board' ? <BoardPage tasks={tasks} loading={loading} onOpenTask={openTask} />
+      : page === 'board' ? <BoardPage tasks={tasks} loading={loading} onOpenTask={openTask} showArchived={showArchived} onShowArchived={selectArchived} />
         : page === 'settings' ? <SettingsPage settings={settings} onSave={saveSettings} onInitialize={initializeCodexProject} onClearAndReset={clearAndReset} onChooseDirectory={wmApi.chooseDirectory} />
           : <ProjectListPage projects={projects} loading={projectsLoading} syncing={syncingProjects} onSync={syncProjects} onOpenProject={openProject} />}
   </div>;

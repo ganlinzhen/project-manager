@@ -82,6 +82,20 @@ describe('桌面端任务流', () => {
     expect(screen.getByRole('link', { name: '打开工作树' })).toBeInTheDocument();
   });
 
+  it('详情页可归档任务，并可从归档任务恢复', async () => {
+    const onAction = vi.fn().mockResolvedValue(undefined);
+    const detail: TaskDetail = { task: active, project: { id: 'demo', name: 'Demo' }, artifacts: {}, artifactFiles: [], events: [], services: [] };
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<TaskDetailPage detail={detail} pendingAction={null} onBack={vi.fn()} onAction={onAction} />);
+    await userEvent.click(screen.getByRole('button', { name: '归档任务' }));
+    expect(onAction).toHaveBeenCalledWith('archive', { reason: '用户归档' });
+
+    onAction.mockClear();
+    render(<TaskDetailPage detail={{ ...detail, task: { ...active, archivedAt: '2026-07-23T00:00:00.000Z', archivedReason: '用户归档' } }} pendingAction={null} onBack={vi.fn()} onAction={onAction} />);
+    await userEvent.click(screen.getByRole('button', { name: '恢复任务' }));
+    expect(onAction).toHaveBeenCalledWith('restore');
+  });
+
   it('演示项目显示连接边界且不提供服务启动操作', () => {
     const detail: TaskDetail = {
       task: active,

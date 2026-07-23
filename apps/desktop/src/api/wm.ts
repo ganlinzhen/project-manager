@@ -34,9 +34,9 @@ async function call<T>(args: string[]): Promise<T> {
 }
 
 export const wmApi = {
-  async listTasks(): Promise<TaskSummary[]> {
+  async listTasks(options: { archived?: boolean } = {}): Promise<TaskSummary[]> {
     if (!isTauri()) return browserDemo;
-    return (await call<{ tasks: TaskSummary[] }>(['task', 'list', '--all', '--json'])).tasks;
+    return (await call<{ tasks: TaskSummary[] }>(['task', 'list', '--all', ...(options.archived ? ['--archived'] : []), '--json'])).tasks;
   },
   async listProjects(): Promise<ProjectSummary[]> {
     if (!isTauri()) return [browserProject];
@@ -66,9 +66,9 @@ export const wmApi = {
     };
     return call<TaskDetail>(['task', 'show', id, '--json']);
   },
-  async taskAction(id: string, action: 'pause' | 'resume' | 'complete'): Promise<void> {
+  async taskAction(id: string, action: 'pause' | 'resume' | 'complete' | 'archive' | 'restore', data: { reason?: string } = {}): Promise<void> {
     if (!isTauri()) return;
-    await call(['task', action, id, '--json']);
+    await call(['task', action, id, ...(data.reason ? ['--reason', data.reason] : []), '--json']);
   },
   async serviceAction(id: string, action: 'start' | 'stop', serviceKey: string): Promise<void> {
     if (!isTauri()) return;

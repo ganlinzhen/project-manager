@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "工作管理器", "width": 1320, "height": 860, "minWidth": 860, "minHeight": 640 }],
+    "windows": [{ "title": "", "width": 1320, "height": 860, "minWidth": 860, "minHeight": 640, "titleBarStyle": "Overlay", "trafficLightPosition": { "x": 16, "y": 16 } }],
     "security": { "csp": null }
   },
   "bundle": {

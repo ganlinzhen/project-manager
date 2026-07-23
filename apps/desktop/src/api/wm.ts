@@ -1,7 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { TaskDetail, TaskSummary } from '../types.js';
+import { open } from '@tauri-apps/plugin-dialog';
+import type { ProjectDetail, ProjectSummary, TaskDetail, TaskSummary } from '../types.js';
 
 export interface DesktopSettings { managerRoot: string | null; nodePath: string | null; }
+export interface InitializeCodexProjectInput { projectName: string; parentDirectory: string; }
 
 type WmSuccess<T> = { ok: true; data: T };
 type WmFailure = { ok: false; error: { code: string; message: string; recoverable: boolean; suggestedCommand?: string } };
@@ -13,6 +15,11 @@ const browserDemo: TaskSummary[] = [{
   updatedAt: new Date().toISOString(), worktreePath: '/tmp/DEMO-1', branchName: 'wm/demo-1-mvp', issueUrl: null,
   services: [{ serviceKey: 'desktop', status: 'running', port: 1420 }]
 }];
+
+const browserProject: ProjectSummary = {
+  id: 'project-manager', name: 'Project Manager', mode: 'demo', repositoryPath: '/tmp/project-manager',
+  defaultBranch: 'main', issue: { provider: 'none' }, serviceCount: 1
+};
 
 function isTauri(): boolean { return '__TAURI_INTERNALS__' in window; }
 
@@ -30,6 +37,25 @@ export const wmApi = {
   async listTasks(): Promise<TaskSummary[]> {
     if (!isTauri()) return browserDemo;
     return (await call<{ tasks: TaskSummary[] }>(['task', 'list', '--all', '--json'])).tasks;
+  },
+  async listProjects(): Promise<ProjectSummary[]> {
+    if (!isTauri()) return [browserProject];
+    return (await call<{ projects: ProjectSummary[] }>(['project', 'list', '--json'])).projects;
+  },
+  async syncProjects(): Promise<ProjectSummary[]> {
+    if (!isTauri()) return [browserProject];
+    return (await call<{ projects: ProjectSummary[] }>(['project', 'sync', '--json'])).projects;
+  },
+  async getProject(id: string): Promise<ProjectDetail> {
+    if (!isTauri()) {
+      return {
+        project: {
+          ...browserProject,
+          development: { services: { desktop: { cwd: '.', startCommand: ['pnpm', 'desktop:dev'], port: 1420 } } }
+        }
+      };
+    }
+    return call<ProjectDetail>(['project', 'show', id, '--json']);
   },
   async getTask(id: string): Promise<TaskDetail> {
     if (!isTauri()) return {
@@ -58,5 +84,18 @@ export const wmApi = {
   async saveSettings(settings: { managerRoot: string; nodePath: string }): Promise<DesktopSettings> {
     if (!isTauri()) return settings;
     return invoke<DesktopSettings>('save_desktop_settings', { managerRoot: settings.managerRoot, nodePath: settings.nodePath || null });
+  },
+  async chooseDirectory(): Promise<string | null> {
+    if (!isTauri()) return null;
+    const selected = await open({ directory: true, multiple: false, title: '选择 Codex 项目的本机目录' });
+    return typeof selected === 'string' ? selected : null;
+  },
+  async initializeCodexProject(input: InitializeCodexProjectInput): Promise<DesktopSettings> {
+    if (!isTauri()) return { managerRoot: input.parentDirectory ? `${input.parentDirectory}/${input.projectName}` : null, nodePath: null };
+    return invoke<DesktopSettings>('initialize_codex_project', { projectName: input.projectName, parentDirectory: input.parentDirectory });
+  },
+  async clearDesktopData(): Promise<DesktopSettings> {
+    if (!isTauri()) return { managerRoot: null, nodePath: null };
+    return invoke<DesktopSettings>('clear_desktop_data');
   }
 };

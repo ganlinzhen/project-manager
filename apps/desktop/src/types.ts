@@ -10,6 +10,40 @@ export interface ServiceSummary {
   healthCheckUrl?: string | null;
 }
 
+export type ProjectMode = 'real' | 'demo';
+
+export interface ProjectIssue {
+  provider: 'github' | 'gitlab' | 'none';
+  repository?: string;
+  labels?: Partial<Record<'feature' | 'bug' | 'chore', string[]>>;
+}
+
+export interface ProjectServiceConfig {
+  cwd: string;
+  startCommand: string | string[];
+  healthCheckUrl?: string;
+  port?: number;
+}
+
+export interface ProjectConfig {
+  id: string;
+  name: string;
+  mode: ProjectMode;
+  repositoryPath: string;
+  worktreeRoot?: string;
+  defaultBranch: string;
+  issue: ProjectIssue;
+  development: { services: Record<string, ProjectServiceConfig> };
+}
+
+export interface ProjectSummary extends Omit<ProjectConfig, 'development' | 'worktreeRoot'> {
+  serviceCount: number;
+}
+
+export interface ProjectDetail {
+  project: ProjectConfig;
+}
+
 export interface TaskSummary {
   id: string;
   projectId: string;

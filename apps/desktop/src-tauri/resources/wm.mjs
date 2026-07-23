@@ -12691,9 +12691,29 @@ function projectForTask(runtime, taskId) {
   const task = runtime.repository.requireTask(taskId);
   return runtime.projects.get(task.projectId) ?? runtime.repository.getProject(task.projectId) ?? void 0;
 }
+function projectSummary(project) {
+  return {
+    id: project.id,
+    name: project.name,
+    mode: project.mode,
+    repositoryPath: project.repositoryPath,
+    defaultBranch: project.defaultBranch,
+    issue: project.issue,
+    serviceCount: Object.keys(project.development.services).length
+  };
+}
 async function dispatch(args, runtime) {
   const [scope, action, id] = args;
   if (!scope || flag(args, "--help") || scope === "help") return help();
+  if (scope === "project" && (action === "list" || action === "sync")) {
+    return { projects: runtime.repository.listProjects().map(projectSummary) };
+  }
+  if (scope === "project" && action === "show") {
+    if (!id) throw Object.assign(new Error("\u7F3A\u5C11\u9879\u76EE ID"), { code: "CLI_ARGUMENT_REQUIRED" });
+    const project = runtime.repository.getProject(id);
+    if (!project) throw Object.assign(new Error(`\u9879\u76EE\u4E0D\u5B58\u5728\uFF1A${id}`), { code: "PROJECT_NOT_FOUND" });
+    return { project };
+  }
   if (scope === "project" && action === "validate") {
     if (!id) throw Object.assign(new Error("\u7F3A\u5C11\u9879\u76EE ID"), { code: "CLI_ARGUMENT_REQUIRED" });
     const project = runtime.projects.get(id);
@@ -12794,7 +12814,7 @@ function help() {
   return {
     usage: "wm <scope> <command> [options] --json",
     commands: [
-      "project validate <project>",
+      "project list|sync|show|validate",
       "task create|list|show|progress|retry|pause|resume|complete|reopen|attach-issue|doctor",
       "env start|stop|status"
     ]

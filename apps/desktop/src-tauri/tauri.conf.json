@@ -23,6 +23,9 @@
       "icons/husky-workbench/icon.icns",
       "icons/husky-workbench/icon.ico"
     ],
-    "resources": ["resources/wm.mjs"]
+    "resources": {
+      "resources/wm.mjs": "resources/wm.mjs",
+      "../../../templates/work-manager": "templates/work-manager"
+    }
   }
 }

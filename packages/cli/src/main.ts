@@ -85,9 +85,30 @@ function projectForTask(runtime: Runtime, taskId: string): ProjectConfig | undef
   return runtime.projects.get(task.projectId) ?? runtime.repository.getProject(task.projectId) ?? undefined;
 }
 
+function projectSummary(project: ProjectConfig) {
+  return {
+    id: project.id,
+    name: project.name,
+    mode: project.mode,
+    repositoryPath: project.repositoryPath,
+    defaultBranch: project.defaultBranch,
+    issue: project.issue,
+    serviceCount: Object.keys(project.development.services).length
+  };
+}
+
 async function dispatch(args: string[], runtime: Runtime): Promise<unknown> {
   const [scope, action, id] = args;
   if (!scope || flag(args, '--help') || scope === 'help') return help();
+  if (scope === 'project' && (action === 'list' || action === 'sync')) {
+    return { projects: runtime.repository.listProjects().map(projectSummary) };
+  }
+  if (scope === 'project' && action === 'show') {
+    if (!id) throw Object.assign(new Error('缺少项目 ID'), { code: 'CLI_ARGUMENT_REQUIRED' });
+    const project = runtime.repository.getProject(id);
+    if (!project) throw Object.assign(new Error(`项目不存在：${id}`), { code: 'PROJECT_NOT_FOUND' });
+    return { project };
+  }
   if (scope === 'project' && action === 'validate') {
     if (!id) throw Object.assign(new Error('缺少项目 ID'), { code: 'CLI_ARGUMENT_REQUIRED' });
     const project = runtime.projects.get(id);
@@ -184,7 +205,7 @@ function help(): { usage: string; commands: string[] } {
   return {
     usage: 'wm <scope> <command> [options] --json',
     commands: [
-      'project validate <project>', 'task create|list|show|progress|retry|pause|resume|complete|reopen|attach-issue|doctor',
+      'project list|sync|show|validate', 'task create|list|show|progress|retry|pause|resume|complete|reopen|attach-issue|doctor',
       'env start|stop|status'
     ]
   };

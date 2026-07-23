@@ -40,6 +40,32 @@ async function run(args: string[], config: Awaited<ReturnType<typeof runtime>>):
 }
 
 describe('wm CLI JSON 闭环', () => {
+  it('列出、查看并显式同步数据库中的项目配置', async () => {
+    const config = await runtime();
+
+    const listed = await run(['project', 'list', '--json'], config);
+    expect(listed).toMatchObject({
+      ok: true,
+      data: { projects: [expect.objectContaining({ id: 'demo', name: 'Demo', defaultBranch: 'main' })] }
+    });
+
+    await writeFile(path.join(config.projectsDir, 'demo.yaml'), [
+      'id: demo', 'name: 已同步的 Demo', 'taskPrefix: DEMO', `repositoryPath: ${path.join(config.managerRoot, 'repo')}`, 'defaultBranch: main',
+      'issue:', '  provider: none', 'development:', '  services: {}'
+    ].join('\n'));
+    const synced = await run(['project', 'sync', '--json'], config);
+    expect(synced).toMatchObject({
+      ok: true,
+      data: { projects: [expect.objectContaining({ id: 'demo', name: '已同步的 Demo' })] }
+    });
+
+    const detail = await run(['project', 'show', 'demo', '--json'], config);
+    expect(detail).toMatchObject({
+      ok: true,
+      data: { project: expect.objectContaining({ id: 'demo', name: '已同步的 Demo' }) }
+    });
+  });
+
   it('演示项目跳过外部校验并初始化展示任务', async () => {
     const config = await demoRuntime();
     const validation = await run(['project', 'validate', 'demo', '--json'], config);

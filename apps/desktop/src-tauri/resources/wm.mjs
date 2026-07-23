@@ -12651,7 +12651,6 @@ async function findManagerRoot(start) {
   let current = path8.resolve(start);
   while (true) {
     try {
-      await access2(path8.join(current, "pnpm-workspace.yaml"));
       await access2(path8.join(current, "projects"));
       return current;
     } catch {

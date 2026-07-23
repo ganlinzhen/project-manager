@@ -6,7 +6,7 @@
 
 - 项目 YAML 注册与校验，项目内任务编号单调递增且不复用。
 - 任务创建、列表、详情、进展、暂停、恢复、完成、重开、重试与 doctor。
-- 在 `data/artifacts/<taskId>/` 原子维护需求、上下文、计划、进展和完成总结。
+- 在工作管理仓库的 `data/artifacts/<taskId>/` 原子维护需求、上下文、计划、进展和完成总结。
 - 通过参数数组安全调用 Git、`gh` 和 `glab`，支持创建或关联 GitHub / GitLab Issue。
 - 为任务创建分支和 worktree，部分失败时保留已成功资源，重试不会重复创建 Issue。
 - 按任务和名称独立启动、停止与探测多个开发服务。
@@ -32,7 +32,7 @@ pnpm test
 
 ## 配置项目
 
-在 `projects/` 下创建 YAML。仓库路径必须是绝对路径；每个项目只能选择一个 Issue 提供方。
+在工作管理仓库的 `projects/` 下创建 YAML。仓库路径必须是绝对路径；每个项目只能选择一个 Issue 提供方。
 
 ```yaml
 id: demo
@@ -65,7 +65,7 @@ pnpm wm project validate demo --json
 
 ## 跑通 CLI 流程
 
-以下命令使用 macOS Application Support 中的 SQLite，并在本仓库 `data/artifacts/` 写 Markdown：
+以下命令使用 macOS Application Support 中的 SQLite，并在已配置的工作管理仓库 `data/artifacts/` 写 Markdown。先在桌面应用“设置”中创建或选择工作管理仓库；它由 `templates/work-manager` 初始化。
 
 ```bash
 pnpm wm task create \
@@ -118,3 +118,13 @@ pnpm --filter @work-manager/desktop tauri build
 - 项目配置：本工作管理仓库的 `projects/*.yaml`
 
 测试可通过 `WM_MANAGER_ROOT`、`WM_PROJECTS_DIR`、`WM_DATABASE_PATH` 和 `WM_APP_DATA_DIR` 指向临时目录，不污染真实数据。
+
+## 开发 Mock
+
+根目录的 `mock/` 仅用于本仓库开发和手动验证，其中的项目配置及任务工件不属于用户的工作管理数据。需要使用它时显式指定：
+
+```bash
+WM_MANAGER_ROOT=mock \
+WM_PROJECTS_DIR=mock/projects \
+pnpm wm project validate project-manager --json
+```

@@ -5,7 +5,7 @@ target/
 .DS_Store
 .worktrees/
 .superpowers/
-data/artifacts/*/
+mock/data/artifacts/*/
 *.db
 *.db-shm
 *.db-wal

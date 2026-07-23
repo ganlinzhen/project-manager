@@ -13,6 +13,16 @@ struct DesktopSettings {
     node_path: Option<PathBuf>,
 }
 
+const DEBUG_DEFAULT_MANAGER_ROOT: &str = "/Users/zhenganlin/Desktop/04-zhen/zhenganlin1";
+const DEBUG_DEFAULT_NODE_PATH: &str = "/Users/zhenganlin/.nvm/versions/node/v22.22.1/bin/node";
+
+fn default_desktop_settings() -> DesktopSettings {
+    DesktopSettings {
+        manager_root: Some(PathBuf::from(DEBUG_DEFAULT_MANAGER_ROOT)),
+        node_path: Some(PathBuf::from(DEBUG_DEFAULT_NODE_PATH)),
+    }
+}
+
 fn allowed(args: &[String]) -> bool {
     if args.len() < 2 {
         return false;
@@ -46,7 +56,7 @@ fn read_settings(app: &AppHandle) -> Result<DesktopSettings, String> {
     let path = settings_path(app)?;
     let mut settings = match fs::read_to_string(&path) {
         Ok(content) => serde_json::from_str(&content).map_err(|error| format!("桌面设置文件无效：{error}"))?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => DesktopSettings::default(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => default_desktop_settings(),
         Err(error) => return Err(format!("无法读取桌面设置：{error}")),
     };
     if let Ok(root) = std::env::var("WM_MANAGER_ROOT") {
@@ -438,7 +448,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        allowed, copy_template_directory, ensure_within, prepare_project_target,
+        allowed, copy_template_directory, default_desktop_settings, ensure_within, prepare_project_target,
         remove_database_files, resolve_work_manager_database_path, validate_project_name,
     };
     use std::ffi::OsString;
@@ -452,6 +462,20 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("{prefix}-{nonce}"))
+    }
+
+    #[test]
+    fn 未保存桌面设置时使用本机调试默认路径() {
+        let settings = default_desktop_settings();
+
+        assert_eq!(
+            settings.manager_root,
+            Some("/Users/zhenganlin/Desktop/04-zhen/zhenganlin1".into())
+        );
+        assert_eq!(
+            settings.node_path,
+            Some("/Users/zhenganlin/.nvm/versions/node/v22.22.1/bin/node".into())
+        );
     }
 
     #[test]

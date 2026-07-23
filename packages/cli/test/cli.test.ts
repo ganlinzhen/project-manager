@@ -88,9 +88,9 @@ describe('wm CLI JSON 闭环', () => {
     expect(environment).toMatchObject({ ok: false, error: { code: 'DEMO_EXTERNAL_OPERATION_FORBIDDEN' } });
   });
 
-  it('从 workspace 子包目录向上找到工作管理仓库根目录', async () => {
+  it('从 mock 子目录向上找到工作管理仓库根目录', async () => {
     const root = path.resolve(import.meta.dirname, '../../..');
-    await expect(findManagerRoot(path.join(root, 'packages', 'cli'))).resolves.toBe(root);
+    await expect(findManagerRoot(path.join(root, 'mock', 'data', 'artifacts'))).resolves.toBe(path.join(root, 'mock'));
   });
 
   it('创建、更新进展、查看并完成任务', async () => {

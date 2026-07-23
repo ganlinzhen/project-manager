@@ -1,12 +1,11 @@
 import { ArrowLeft, CheckCircle2, Clipboard, ExternalLink, FolderOpen, GitBranch, Pause, Play, RotateCcw, Server, Square } from 'lucide-react';
-import { OperationFeedback } from '../components/OperationFeedback.js';
-import type { Feedback, TaskAction, TaskDetail } from '../types.js';
+import type { TaskAction, TaskDetail } from '../types.js';
 
 const labels: Record<string, string> = { ready: '待开始', in_progress: '进行中', blocked: '已阻塞', paused: '已暂停', done: '已完成', cancelled: '已取消', creating: '准备中' };
 const serviceLabels: Record<string, string> = { running: '运行中', starting: '启动中', stopped: '已停止', unhealthy: '不健康', failed: '失败' };
 
-export function TaskDetailPage({ detail, pendingAction, feedback, onBack, onAction }: {
-  detail: TaskDetail; pendingAction: string | null; feedback: Feedback | null; onBack: () => void;
+export function TaskDetailPage({ detail, pendingAction, onBack, onAction }: {
+  detail: TaskDetail; pendingAction: string | null; onBack: () => void;
   onAction: (action: TaskAction, data?: Record<string, string>) => Promise<void>;
 }) {
   const { task } = detail;
@@ -24,7 +23,6 @@ export function TaskDetailPage({ detail, pendingAction, feedback, onBack, onActi
           {canComplete && <button className="button" disabled={Boolean(pendingAction)} onClick={() => onAction('complete')}><CheckCircle2 size={16} />标记完成</button>}
         </div>
       </header>
-      <OperationFeedback feedback={feedback} />
       <div className="detail-layout">
         <div className="detail-main">
           <section className="overview-panel">

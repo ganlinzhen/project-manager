@@ -91,6 +91,20 @@ describe('应用级项目初始化与重设', () => {
     expect(api.getProject).toHaveBeenCalledWith('demo');
   });
 
+  it('连续操作在顶部 Toast 队列中显示，进入项目详情后仍保留', async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole('button', { name: '项目' }));
+    await userEvent.click(screen.getByRole('button', { name: '同步 projects' }));
+    await userEvent.click(screen.getByRole('button', { name: '同步 projects' }));
+
+    expect(screen.getByLabelText('操作通知')).toBeInTheDocument();
+    expect(screen.getAllByText('已同步 1 个项目')).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: 'Demo 项目' }));
+    expect(await screen.findByText('项目配置')).toBeInTheDocument();
+    expect(screen.getAllByText('已同步 1 个项目')).toHaveLength(2);
+  });
+
   it('清空成功后移除旧任务并使用返回设置恢复初始化入口', async () => {
     api.getSettings.mockResolvedValue({ managerRoot: '/tmp/旧项目', nodePath: '/opt/homebrew/bin/node' });
     api.listTasks.mockResolvedValue([oldTask]);

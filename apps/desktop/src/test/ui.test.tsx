@@ -74,7 +74,7 @@ describe('桌面端任务流', () => {
       events: [{ id: 1, type: 'operation_failed', success: false, message: '健康检查失败', createdAt: '2026-07-17T08:32:00.000Z', metadata: { suggestedCommand: 'wm env start DEMO-1 --service web --json' } }],
       services: [{ serviceKey: 'web', status: 'stopped', port: 1420, lastError: null }]
     };
-    render(<TaskDetailPage detail={detail} pendingAction={null} feedback={null} onBack={vi.fn()} onAction={onAction} />);
+    render(<TaskDetailPage detail={detail} pendingAction={null} onBack={vi.fn()} onAction={onAction} />);
     await userEvent.click(screen.getByRole('button', { name: '启动 web' }));
     expect(onAction).toHaveBeenCalledWith('start-service', { serviceKey: 'web' });
     expect(screen.getByText('健康检查失败')).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe('桌面端任务流', () => {
       events: [],
       services: [{ serviceKey: 'web', status: 'stopped', port: 1420, lastError: null }]
     };
-    render(<TaskDetailPage detail={detail} pendingAction={null} feedback={null} onBack={vi.fn()} onAction={vi.fn()} />);
+    render(<TaskDetailPage detail={detail} pendingAction={null} onBack={vi.fn()} onAction={vi.fn()} />);
     expect(screen.getByText('演示项目')).toBeInTheDocument();
     expect(screen.getByText('演示项目不连接真实仓库或开发服务。')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '启动 web' })).not.toBeInTheDocument();
@@ -186,7 +186,7 @@ describe('桌面端任务流', () => {
       events: [],
       services: []
     };
-    render(<TaskDetailPage detail={detail} pendingAction={null} feedback={null} onBack={vi.fn()} onAction={vi.fn()} />);
+    render(<TaskDetailPage detail={detail} pendingAction={null} onBack={vi.fn()} onAction={vi.fn()} />);
     expect(screen.queryByRole('button', { name: '暂停任务' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '标记完成' })).not.toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.tagName === 'DD' && element.textContent?.includes('配置有效') === true)).toBeInTheDocument();
